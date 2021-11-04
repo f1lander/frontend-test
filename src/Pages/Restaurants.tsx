@@ -1,15 +1,26 @@
-import React, { useState, useEffect } from "react";
-import axios from "axios";
+import React, { useState, useEffect, useMemo } from "react";
 
 import { Header, FilterBar } from "../Components/Molecules";
 
 import { gql, useQuery } from "@apollo/client";
 import { CardsSection } from "../Components/Organisms/CardsSection/CardsSection";
 import { Button } from "../Components/Atoms";
+import { ALL_OPTION, RESTAURANTS} from '../constants'
+import { IFilters, ICategory } from "./Restaurants.types";
 
 const QUERY_BUSINESS = gql`
-  query GetBusiness($offset: Int!) {
-    search(location: "Las Vegas", limit: 10, offset: $offset) {
+  query GetBusiness($offset: Int!, $categories: String) {
+    categories(country: "US", locale: "en_US") {
+      total
+      category {
+        title
+        alias
+        parent_categories {
+          title
+        }
+      }
+    }
+    search(location: "Las Vegas", limit: 10, offset: $offset, categories: $categories) {
       total
       business {
         name
@@ -30,13 +41,9 @@ const QUERY_BUSINESS = gql`
     }
   }
 `;
-interface IFilters {
-  isOpenNow: boolean;
-  price: Array<string> | undefined;
-  categories: Array<string> | undefined;
-}
+
 export const RestaurantsSection: React.FC<any> = (props: any): JSX.Element => {
-  const [categories, setCategories] = useState();
+
   const [offset, setOffset] = useState(0);
   const [business, setBusiness] = useState<any>([]);
   const [priceOptions, setPriceOptions] = useState([
@@ -46,9 +53,7 @@ export const RestaurantsSection: React.FC<any> = (props: any): JSX.Element => {
     { label: "$$$", value: "$$$" },
     { label: "$$$$", value: "$$$$" },
   ]);
-  const [categoriesOptions, setCategoriesOptions] = useState([
-    { label: "All", value: "All" },
-  ]);
+
   const [filters, setFilters] = useState<IFilters>({
     isOpenNow: false,
     price: undefined,
@@ -59,13 +64,11 @@ export const RestaurantsSection: React.FC<any> = (props: any): JSX.Element => {
     nextFetchPolicy: "cache-first",
   });
 
-  useEffect(() => {
-    const getCategories = async () => {
-      const { data: result } = await axios.get("/v3/categories");
-      setCategories(result);
-    };
-    getCategories();
-  }, []);
+  const categoriesOptions = useMemo(() => {
+    return !data?.categories ? [ALL_OPTION] : [ALL_OPTION, ...data.categories.category
+      .filter((category:ICategory) => category.parent_categories.length && category.parent_categories[0].title === RESTAURANTS)
+      .map((category:ICategory) => ({ label: category.title, value: category.alias }))]
+  }, [data]);
 
   useEffect(() => {
     fetchMore({ variables: { offset } });
@@ -84,7 +87,7 @@ export const RestaurantsSection: React.FC<any> = (props: any): JSX.Element => {
     setOffset(offset + 10);
   };
 
-  const handleOnFilter = (filter: any) => {    
+  const handleOnFilter = (filter: any) => {
     setFilters({ ...filters, ...filter });
   };
 
@@ -116,8 +119,9 @@ export const RestaurantsSection: React.FC<any> = (props: any): JSX.Element => {
               isOpen: item?.hours[0]?.is_open_now,
             }))
             .filter((item) => (filters.isOpenNow ? item.isOpen : item))
-            .filter((item) => (filters.price ? filters.price.includes(item.price) : item))
-          }
+            .filter((item) =>
+              filters.price ? filters.price.includes(item.price) : item
+            )}
         >
           <Button variant="large" onClick={() => handleOnLoadMore()}>
             Load More

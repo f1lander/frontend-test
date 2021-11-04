@@ -96,6 +96,8 @@ export const SelectValuesContainer = styled.div<{ isOpen: boolean }>`
   color: #606060;
   font-size: 16px;
   background-color: white;
+  max-height: 300px;
+  overflow: auto;
   ${({ isOpen }) => (!isOpen ? fadeOut : fadeIn)};
 `;
 
